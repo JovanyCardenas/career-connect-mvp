@@ -78,3 +78,24 @@ This package is a functional MVP for local testing, not a production-complete re
 5. Events, career fairs, and appointments
 6. Reporting and placement outcomes
 7. REST API and optional mobile/React client
+
+## Expanded management features
+
+This replacement build adds:
+
+- Multiple approved companies per employer account, with explicit company selection on each job
+- Editing of published/rejected jobs with automatic return to pending staff review
+- Employer applicant detail pages with student profile, resume, cover letter and application content
+- Student Document Hub with reusable resumes, cover letters and deletion controls
+- Staff directories for students and employers, account editing, and password-reset email actions
+- Staff company, job and application management, including publish, unpublish, reject, edit and changes-requested workflows
+- Job filters for experience level, degree requirement, minimum salary and radius around supported city centers
+- Optional latitude/longitude fields on job postings for radius filtering
+
+### Radius search notes
+
+Radius filtering requires latitude and longitude on each on-site or hybrid job. Remote jobs remain included in radius searches. The development build includes centers for Santa Maria, San Luis Obispo and San Jose. Add more centers in `core/views.py` or connect a geocoding service before production.
+
+### Development email
+
+Password reset emails use Django's console email backend. During local testing, the reset link is printed in the server terminal. Configure a real transactional email provider before deployment.
