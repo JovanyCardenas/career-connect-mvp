@@ -6,12 +6,18 @@ from django.urls import reverse
 
 class User(AbstractUser):
     class Role(models.TextChoices):
-        STUDENT = "student", "Student"
+        STUDENT = "student", "Current student"
+        ALUMNI = "alumni", "Alumni"
         EMPLOYER = "employer", "Employer"
+        GUEST = "guest", "Community guest"
         STAFF = "staff", "Career Center Staff"
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, help_text="Primary login/personal email")
+    personal_email = models.EmailField(blank=True)
+    school_email = models.EmailField(blank=True)
+    student_id = models.CharField(max_length=40, blank=True, db_index=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT)
-    school_name = models.CharField(max_length=150, blank=True)
+    school_name = models.CharField(max_length=150, blank=True, db_index=True)
+    graduation_year = models.PositiveIntegerField(null=True, blank=True)
     def __str__(self): return self.get_full_name() or self.username
 
 
@@ -55,6 +61,8 @@ class Company(models.Model):
     industry = models.CharField(max_length=120, blank=True)
     location = models.CharField(max_length=180, blank=True)
     description = models.TextField(blank=True)
+    is_college = models.BooleanField(default=False, help_text="Allows school-restricted on-campus postings.")
+    college_name = models.CharField(max_length=150, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     review_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -95,7 +103,11 @@ class Job(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="jobs")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="created_jobs")
     title = models.CharField(max_length=180)
-    location = models.CharField(max_length=180)
+    location = models.CharField(max_length=180, blank=True)
+    address = models.CharField(max_length=200, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    state = models.CharField(max_length=50, blank=True)
+    zip_code = models.CharField(max_length=10, blank=True, verbose_name="ZIP code")
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     employment_type = models.CharField(max_length=20, choices=EmploymentType.choices)
@@ -109,6 +121,8 @@ class Job(models.Model):
     salary_max = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     review_notes = models.TextField(blank=True)
+    is_on_campus = models.BooleanField(default=False)
+    target_school = models.CharField(max_length=150, blank=True)
     external_apply_url = models.URLField(blank=True)
     application_deadline = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -116,6 +130,11 @@ class Job(models.Model):
     class Meta: ordering = ["-created_at"]
     def __str__(self): return f"{self.title} at {self.company.name}"
     def get_absolute_url(self): return reverse("job_detail", args=[self.pk])
+    def refresh_location_label(self):
+        if self.workplace_type == self.WorkplaceType.REMOTE and not (self.city or self.zip_code):
+            self.location = "Remote"
+        else:
+            self.location = ", ".join(part for part in [self.city, self.state] if part) or self.zip_code or self.address
     @property
     def salary_display(self):
         if self.salary_min and self.salary_max: return f"${self.salary_min:,}–${self.salary_max:,}"
@@ -155,3 +174,81 @@ class Application(models.Model):
         ordering = ["-created_at"]
         constraints = [models.UniqueConstraint(fields=["job", "student"], name="unique_job_application")]
     def __str__(self): return f"{self.student} → {self.job}"
+
+class Announcement(models.Model):
+    title = models.CharField(max_length=180)
+    message = models.TextField()
+    image = models.ImageField(upload_to="announcements/", blank=True)
+    link_url = models.URLField(blank=True)
+    school_name = models.CharField(max_length=150, blank=True, help_text="Leave blank to show platform-wide.")
+    is_active = models.BooleanField(default=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="announcements")
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: ordering = ["-created_at"]
+    def __str__(self): return self.title
+
+class ResumeProfile(models.Model):
+    class Template(models.TextChoices):
+        CLASSIC = "classic", "Classic"
+        MODERN = "modern", "Modern"
+        COMPACT = "compact", "Compact"
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="resume_profiles")
+    name = models.CharField(max_length=120, help_text="Example: Software Engineering Resume")
+    template = models.CharField(max_length=20, choices=Template.choices, default=Template.CLASSIC)
+    objective = models.TextField(blank=True)
+    skills = models.TextField(blank=True, help_text="Comma-separated skills")
+    phone = models.CharField(max_length=30, blank=True)
+    city_state = models.CharField(max_length=120, blank=True)
+    website = models.URLField(blank=True)
+    linkedin_url = models.URLField(blank=True)
+    github_url = models.URLField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: ordering = ["-updated_at"]
+    def __str__(self): return self.name
+    @property
+    def skill_list(self): return [s.strip() for s in self.skills.split(",") if s.strip()]
+
+class ResumeExperience(models.Model):
+    resume = models.ForeignKey(ResumeProfile, on_delete=models.CASCADE, related_name="experiences")
+    title = models.CharField(max_length=150)
+    company = models.CharField(max_length=150)
+    city_state = models.CharField(max_length=120, blank=True)
+    date_from = models.CharField(max_length=30, blank=True)
+    date_to = models.CharField(max_length=30, blank=True)
+    summary = models.TextField(blank=True)
+    industry = models.CharField(max_length=100, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    class Meta: ordering = ["sort_order", "-id"]
+
+class ResumeEducation(models.Model):
+    resume = models.ForeignKey(ResumeProfile, on_delete=models.CASCADE, related_name="education_items")
+    school_name = models.CharField(max_length=180)
+    city_state = models.CharField(max_length=120, blank=True)
+    degree = models.CharField(max_length=120, blank=True)
+    major = models.CharField(max_length=120, blank=True)
+    year_from = models.CharField(max_length=10, blank=True)
+    year_to = models.CharField(max_length=20, blank=True)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    class Meta: ordering = ["sort_order", "-id"]
+
+class ResumeAward(models.Model):
+    resume = models.ForeignKey(ResumeProfile, on_delete=models.CASCADE, related_name="awards")
+    title = models.CharField(max_length=180)
+    issuer = models.CharField(max_length=150, blank=True)
+    date = models.CharField(max_length=30, blank=True)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    class Meta: ordering = ["sort_order", "-id"]
+
+class ResumeProject(models.Model):
+    resume = models.ForeignKey(ResumeProfile, on_delete=models.CASCADE, related_name="projects")
+    name = models.CharField(max_length=180)
+    url = models.URLField(blank=True)
+    description = models.TextField(blank=True)
+    technologies = models.CharField(max_length=250, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    class Meta: ordering = ["sort_order", "-id"]

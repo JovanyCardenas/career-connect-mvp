@@ -1,11 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Application, Company, Job, SavedJob, StudentDocument, StudentProfile, User
-
-admin.site.register(User, UserAdmin)
-admin.site.register(StudentProfile)
-admin.site.register(Company)
-admin.site.register(Job)
-admin.site.register(Application)
-admin.site.register(SavedJob)
-admin.site.register(StudentDocument)
+from .models import *
+admin.site.register(User,UserAdmin)
+for model in [StudentProfile,StudentDocument,Company,Job,SavedJob,Application,Announcement,ResumeProfile,ResumeExperience,ResumeEducation,ResumeAward,ResumeProject]:
+    admin.site.register(model)

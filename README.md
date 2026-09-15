@@ -90,12 +90,41 @@ This replacement build adds:
 - Staff directories for students and employers, account editing, and password-reset email actions
 - Staff company, job and application management, including publish, unpublish, reject, edit and changes-requested workflows
 - Job filters for experience level, degree requirement, minimum salary and radius around supported city centers
-- Optional latitude/longitude fields on job postings for radius filtering
+- Employer-friendly address, city, state, and ZIP fields with automatic geocoding for radius filtering
 
 ### Radius search notes
 
-Radius filtering requires latitude and longitude on each on-site or hybrid job. Remote jobs remain included in radius searches. The development build includes centers for Santa Maria, San Luis Obispo and San Jose. Add more centers in `core/views.py` or connect a geocoding service before production.
+Employers and staff never enter latitude or longitude. For on-site and hybrid postings, the form requires at least a city or ZIP code and automatically geocodes the best available location. It tries the complete street address first, then city/state, then ZIP. Remote jobs can omit physical location information and remain included in radius searches.
+
+The development build uses OpenStreetMap Nominatim for low-volume testing and includes offline fallback coordinates for Santa Maria, San Luis Obispo, San Jose, and several demo ZIP codes. Before production, configure a dedicated commercial or self-hosted geocoding provider and follow its usage policy.
 
 ### Development email
 
 Password reset emails use Django's console email backend. During local testing, the reset link is printed in the server terminal. Configure a real transactional email provider before deployment.
+
+
+## Geocoding configuration
+
+Optional Django settings:
+
+```python
+GEOCODING_URL = "https://nominatim.openstreetmap.org/search"
+GEOCODING_USER_AGENT = "CareerConnect-Development/1.0"
+GEOCODING_TIMEOUT = 4
+```
+
+Production systems should use a provider intended for application traffic, cache results, and avoid geocoding an unchanged address repeatedly.
+
+## Expanded account and career-center features
+
+- Account selection for current students, employers, alumni, and community guests.
+- Current students store a student ID, personal email, school email, and school name.
+- Alumni can store their former ID/school email and must enter graduation year.
+- College companies can publish school-restricted on-campus jobs. These appear first only for matching current students and are hidden from all other audiences.
+- Staff list pages include search by name, username, student ID, email, company, job, and related records.
+- Staff announcements support text, images, optional links, school-specific audiences, scheduling, and hidden/inactive states.
+- Students and alumni can create multiple targeted resume profiles with objectives, skills, experience, education, projects, awards, and certificates.
+- Resume sections with no content are omitted from preview and exports.
+- PDF and DOCX exports download immediately and are also saved in the student's Document Hub.
+
+For production resume generation, install LibreOffice if you want server-side DOCX-to-PDF parity checks. The included app generates PDFs directly using ReportLab and DOCX files using python-docx.

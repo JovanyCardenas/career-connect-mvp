@@ -12,7 +12,7 @@
 <div class="d-flex gap-2 align-items-center">{% if user.is_authenticated %}<a class="btn btn-outline-primary" href="{% url 'dashboard' %}">Dashboard</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-light">Log out</button></form>{% else %}<a class="btn btn-light" href="{% url 'login' %}">Log in</a><a class="btn btn-primary" href="{% url 'register' %}">Create account</a>{% endif %}</div>
 </div></div></nav>
 {% if messages %}<div class="container mt-3">{% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>{% endif %}
-<main>{% block content %}{% endblock %}</main>
+{% if active_announcements %}<div class="container mt-3">{% for a in active_announcements %}<div class="alert alert-primary d-flex gap-3 align-items-center"><div class="flex-grow-1"><strong>{{ a.title }}</strong><div>{{ a.message|linebreaksbr }}</div>{% if a.link_url %}<a href="{{ a.link_url }}">Learn more</a>{% endif %}</div>{% if a.image %}<img src="{{ a.image.url }}" alt="{{ a.title }}" style="max-height:100px;max-width:180px;object-fit:contain">{% endif %}</div>{% endfor %}</div>{% endif %}<main>{% block content %}{% endblock %}</main>
 <footer class="border-top mt-5 py-4 bg-white"><div class="container text-muted small">CareerConnect development MVP · Built with Django</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body></html>
